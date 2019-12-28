@@ -27,6 +27,10 @@ namespace FilesClient
     public partial class MainWindow : Window
     {
         public List<MyFile> MyFiles { get; set; }
+        private string FilePath { get; set; }
+        private byte[] FileData { get; set; }
+
+
         public MainWindow()
         {
             InitializeComponent();
@@ -64,6 +68,15 @@ namespace FilesClient
                     var data = Encoding.UTF8.GetBytes(myFiles);
                     stream.Write(data, 0, data.Length);
                 }
+                
+            }
+            using (var client = new TcpClient())
+            {
+                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                using (var stream = client.GetStream())
+                {
+                    stream.Write(FileData, 0, FileData.Length);
+                }
             }
         }
 
@@ -73,15 +86,33 @@ namespace FilesClient
             OpenFileDialog openFileDialog = new OpenFileDialog();
             if (openFileDialog.ShowDialog() == true)
             {
-
-                newFile.Name = openFileDialog.FileName;
+                newFile.Name = System.IO.Path.GetFileName(openFileDialog.FileName);
                 newFile.Size = new FileInfo(openFileDialog.FileName).Length.ToString();
                 MyFiles.Add(newFile);
+                FilePath = openFileDialog.FileName;
+                FileData = File.ReadAllBytes(FilePath);
+
+                var myFile = JsonConvert.SerializeObject(newFile);
+                using (var client = new TcpClient())
+                {
+                    client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                    using (var stream = client.GetStream())
+                    {
+                        var data = Encoding.UTF8.GetBytes(myFile);
+                        stream.Write(data, 0, data.Length);
+                    }
+                }
+                using (var client = new TcpClient())
+                {
+                    client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                    using (var stream = client.GetStream())
+                    {
+                        stream.Write(FileData, 0, FileData.Length);
+                    }
+                }
                 return true;
             }
             return false;
-        }
-
-        
+        } 
     }
 }
