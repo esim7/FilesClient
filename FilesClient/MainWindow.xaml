@@ -20,7 +20,5 @@
         <Button Content="Добавить" Grid.Column="1" HorizontalAlignment="Center" Margin="0,35,0,0" VerticalAlignment="Top" Width="104" Click="AddFileButton" Height="20"/>
         <Button Content="Скачать" Grid.Column="1" HorizontalAlignment="Center" Margin="0,115,0,0" VerticalAlignment="Top" Width="104" Click="DownloadFileButton" Height="20"/>
         <Button Content="Удалить" Grid.Column="1" HorizontalAlignment="Center" Margin="0,74,0,0" VerticalAlignment="Top" Width="104" Click="DeleteFileButton" Height="20"/>
-        <Button Content="Сохранить изменения" Grid.Column="1" HorizontalAlignment="Center" Margin="0,353,0,0" VerticalAlignment="Top" Width="182" Click="SaveButton"/>
-
     </Grid>
 </Window>

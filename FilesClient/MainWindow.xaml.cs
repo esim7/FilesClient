@@ -27,8 +27,8 @@ namespace FilesClient
     public partial class MainWindow : Window
     {
         public List<MyFile> MyFiles { get; set; }
-        private string FilePath { get; set; }
-        private byte[] FileData { get; set; }
+        private string FilePath { get; set; } 
+        private byte[] FileData { get; set; } 
 
 
         public MainWindow()
@@ -54,30 +54,6 @@ namespace FilesClient
         private void DownloadFileButton(object sender, RoutedEventArgs e)
         {
 
-        }
-
-        private void SaveButton(object sender, RoutedEventArgs e)
-        {
-            var myFiles =  JsonConvert.SerializeObject(MyFiles);
-
-            using (var client = new TcpClient())
-            {
-                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
-                using (var stream = client.GetStream())
-                {
-                    var data = Encoding.UTF8.GetBytes(myFiles);
-                    stream.Write(data, 0, data.Length);
-                }
-                
-            }
-            using (var client = new TcpClient())
-            {
-                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
-                using (var stream = client.GetStream())
-                {
-                    stream.Write(FileData, 0, FileData.Length);
-                }
-            }
         }
 
         public bool AddFile()
