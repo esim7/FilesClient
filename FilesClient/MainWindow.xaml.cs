@@ -29,17 +29,43 @@ namespace FilesClient
         public List<MyFile> MyFiles { get; set; }
         private string FilePath { get; set; } 
         private byte[] FileData { get; set; } 
-
+        private string FirstMessage { get; set; }
 
         public MainWindow()
         {
             InitializeComponent();
             MyFiles = new List<MyFile>();
+            using (var client = new TcpClient())
+            {
+                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                using (var stream = client.GetStream())
+                {
+                    var resultText = string.Empty;
+                    do
+                    {
+                        var buffer = new byte[128];
+                        stream.Read(buffer, 0, buffer.Length);
+                        resultText += System.Text.Encoding.UTF8.GetString(buffer);
+
+                        //if (!stream.DataAvailable)
+                        //{
+                        //    System.Threading.Thread.Sleep(1);
+                        //}
+                    }
+                    while (stream.DataAvailable);
+
+                    var myFiles = JsonConvert.DeserializeObject<List<MyFile>>(resultText);
+                    MyFiles = myFiles;
+                    dataGrid.ItemsSource = MyFiles;
+                }
+            }
         }
 
 
         private void AddFileButton(object sender, RoutedEventArgs e)
         {
+            FirstMessage = "recive";
+            FirstMessageToServer();
             dataGrid.ItemsSource = null;
             AddFile();       
             dataGrid.ItemsSource = MyFiles;
@@ -47,14 +73,33 @@ namespace FilesClient
 
         private void DeleteFileButton(object sender, RoutedEventArgs e)
         {
-            //todo
+
         }
 
         private void DownloadFileButton(object sender, RoutedEventArgs e)
         {
-            //todo
+            var index = dataGrid.SelectedIndex;
+            var id = MyFiles.ElementAt(index).Id;
+            var size = MyFiles.ElementAt(index).Size;
+            var formatFile = MyFiles.ElementAt(index).Name.Substring(MyFiles.ElementAt(index).Name.IndexOf('.'));
+            MessageBox.Show(formatFile);
+            FirstMessage = "send";
+            FirstMessageToServer();
+            DownloadFile(id, size, formatFile);
         }
 
+        public void FirstMessageToServer()
+        {
+            using (var client = new TcpClient())
+            {
+                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                using (var stream = client.GetStream())
+                {
+                    var data = Encoding.UTF8.GetBytes(FirstMessage);
+                    stream.Write(data, 0, data.Length);
+                }
+            }
+        }
         public bool AddFile()
         {
             var newFile = new MyFile();
@@ -93,6 +138,34 @@ namespace FilesClient
                 return true;
             }
             return false;
-        } 
+        }
+        public void DownloadFile(Guid id, string size, string format)
+        {
+            using (var client = new TcpClient())
+            {
+                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                using (var stream = client.GetStream())
+                {
+                    var data = Encoding.UTF8.GetBytes(id.ToString());
+                    stream.Write(data, 0, data.Length);
+
+                    byte[] buffer = new byte[int.Parse(size)];
+                    stream.Read(buffer, 0, buffer.Length);
+                    SaveToComputer(buffer, format);
+                }
+            }
+        }
+
+        public void SaveToComputer(byte[] data, string format)
+        {
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                using (var fileStream = new FileStream(saveFileDialog.FileName + format, FileMode.Create, FileAccess.Write))
+                {
+                    fileStream.Write(data, 0, data.Length);
+                }
+            }
+        }
     }
 }
