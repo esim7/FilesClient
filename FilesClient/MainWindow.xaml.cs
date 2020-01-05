@@ -35,7 +35,6 @@ namespace FilesClient
         {
             InitializeComponent();
             MyFiles = new List<MyFile>();
-            dataGrid.ItemsSource = MyFiles;
         }
 
 
@@ -48,12 +47,12 @@ namespace FilesClient
 
         private void DeleteFileButton(object sender, RoutedEventArgs e)
         {
-
+            //todo
         }
 
         private void DownloadFileButton(object sender, RoutedEventArgs e)
         {
-
+            //todo
         }
 
         public bool AddFile()
@@ -64,7 +63,6 @@ namespace FilesClient
             {
                 newFile.Name = System.IO.Path.GetFileName(openFileDialog.FileName);
                 newFile.Size = new FileInfo(openFileDialog.FileName).Length.ToString();
-                MyFiles.Add(newFile);
                 FilePath = openFileDialog.FileName;
                 FileData = File.ReadAllBytes(FilePath);
 
@@ -84,6 +82,12 @@ namespace FilesClient
                     using (var stream = client.GetStream())
                     {
                         stream.Write(FileData, 0, FileData.Length);
+
+                        var buffer = new byte[1024];
+                        stream.Read(buffer, 0, buffer.Length);
+                        var resultText = System.Text.Encoding.UTF8.GetString(buffer);
+                        var myFiles = JsonConvert.DeserializeObject<List<MyFile>>(resultText);
+                        MyFiles = myFiles;
                     }
                 }
                 return true;
