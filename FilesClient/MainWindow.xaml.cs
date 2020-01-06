@@ -73,7 +73,13 @@ namespace FilesClient
 
         private void DeleteFileButton(object sender, RoutedEventArgs e)
         {
-
+            var index = dataGrid.SelectedIndex;
+            var id = MyFiles.ElementAt(index).Id;
+            FirstMessage = "delete";
+            FirstMessageToServer();
+            dataGrid.ItemsSource = null;
+            DeleteFile(id);
+            dataGrid.ItemsSource = MyFiles;
         }
 
         private void DownloadFileButton(object sender, RoutedEventArgs e)
@@ -81,10 +87,9 @@ namespace FilesClient
             var index = dataGrid.SelectedIndex;
             var id = MyFiles.ElementAt(index).Id;
             var size = MyFiles.ElementAt(index).Size;
-            var formatFile = MyFiles.ElementAt(index).Name.Substring(MyFiles.ElementAt(index).Name.IndexOf('.'));
-            MessageBox.Show(formatFile);
-            FirstMessage = "send";
-            FirstMessageToServer();
+            var formatFile = MyFiles.ElementAt(index).Name.Substring(MyFiles.ElementAt(index).Name.IndexOf('.')); // получаю расширение файла и передаю его в метод, 
+            FirstMessage = "send";                                                                                // вставляю его в конце имени файла при сохранении 
+            FirstMessageToServer();                                                                               // его в выбранной директории
             DownloadFile(id, size, formatFile);
         }
 
@@ -127,10 +132,14 @@ namespace FilesClient
                     using (var stream = client.GetStream())
                     {
                         stream.Write(FileData, 0, FileData.Length);
-
-                        var buffer = new byte[1024];
-                        stream.Read(buffer, 0, buffer.Length);
-                        var resultText = System.Text.Encoding.UTF8.GetString(buffer);
+                        var resultText = string.Empty;
+                        do
+                        {
+                            var buffer = new byte[128];
+                            stream.Read(buffer, 0, buffer.Length);
+                            resultText += System.Text.Encoding.UTF8.GetString(buffer);
+                        }
+                        while (stream.DataAvailable);
                         var myFiles = JsonConvert.DeserializeObject<List<MyFile>>(resultText);
                         MyFiles = myFiles;
                     }
@@ -152,6 +161,35 @@ namespace FilesClient
                     byte[] buffer = new byte[int.Parse(size)];
                     stream.Read(buffer, 0, buffer.Length);
                     SaveToComputer(buffer, format);
+                }
+            }
+        }
+
+        public void DeleteFile(Guid id)
+        {
+            using (var client = new TcpClient())
+            {
+                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                using (var stream = client.GetStream())
+                {
+                    var data = Encoding.UTF8.GetBytes(id.ToString());
+                    stream.Write(data, 0, data.Length);
+
+                    var resultText = string.Empty;
+                    do
+                    {
+                        var buffer = new byte[128];
+                        stream.Read(buffer, 0, buffer.Length);
+                        resultText += System.Text.Encoding.UTF8.GetString(buffer);
+
+                        //if (!stream.DataAvailable)
+                        //{
+                        //    System.Threading.Thread.Sleep(1);
+                        //}
+                    }
+                    while (stream.DataAvailable);
+                    var myFiles = JsonConvert.DeserializeObject<List<MyFile>>(resultText);
+                    MyFiles = myFiles;
                 }
             }
         }
