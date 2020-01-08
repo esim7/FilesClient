@@ -62,27 +62,27 @@ namespace FilesClient
         }
 
 
-        private void AddFileButton(object sender, RoutedEventArgs e)
+        private async void AddFileButton(object sender, RoutedEventArgs e)
         {
             FirstMessage = "recive";
             FirstMessageToServer();
             dataGrid.ItemsSource = null;
-            AddFile();       
+            await AddFileAsync();
             dataGrid.ItemsSource = MyFiles;
         }
 
-        private void DeleteFileButton(object sender, RoutedEventArgs e)
+        private async void DeleteFileButton(object sender, RoutedEventArgs e)
         {
             var index = dataGrid.SelectedIndex;
             var id = MyFiles.ElementAt(index).Id;
             FirstMessage = "delete";
             FirstMessageToServer();
             dataGrid.ItemsSource = null;
-            DeleteFile(id);
+            await DeleteFileAsync(id);
             dataGrid.ItemsSource = MyFiles;
         }
 
-        private void DownloadFileButton(object sender, RoutedEventArgs e)
+        private async void DownloadFileButton(object sender, RoutedEventArgs e)
         {
             var index = dataGrid.SelectedIndex;
             var id = MyFiles.ElementAt(index).Id;
@@ -90,7 +90,7 @@ namespace FilesClient
             var formatFile = MyFiles.ElementAt(index).Name.Substring(MyFiles.ElementAt(index).Name.IndexOf('.')); // получаю расширение файла и передаю его в метод, 
             FirstMessage = "send";                                                                                // вставляю его в конце имени файла при сохранении 
             FirstMessageToServer();                                                                               // его в выбранной директории
-            DownloadFile(id, size, formatFile);
+            await DownloadFileAsync(id, size, formatFile);
         }
 
         public void FirstMessageToServer()
@@ -105,33 +105,83 @@ namespace FilesClient
                 }
             }
         }
-        public bool AddFile()
+        public async Task AddFileAsync()
         {
-            var newFile = new MyFile();
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            if (openFileDialog.ShowDialog() == true)
+            await Task.Run(() =>
             {
-                newFile.Name = System.IO.Path.GetFileName(openFileDialog.FileName);
-                newFile.Size = new FileInfo(openFileDialog.FileName).Length.ToString();
-                FilePath = openFileDialog.FileName;
-                FileData = File.ReadAllBytes(FilePath);
-
-                var myFile = JsonConvert.SerializeObject(newFile);
-                using (var client = new TcpClient())
+                var newFile = new MyFile();
+                OpenFileDialog openFileDialog = new OpenFileDialog();
+                if (openFileDialog.ShowDialog() == true)
                 {
-                    client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
-                    using (var stream = client.GetStream())
+                    newFile.Name = System.IO.Path.GetFileName(openFileDialog.FileName);
+                    newFile.Size = new FileInfo(openFileDialog.FileName).Length.ToString();
+                    FilePath = openFileDialog.FileName;
+                    FileData = File.ReadAllBytes(FilePath);
+
+                    var myFile = JsonConvert.SerializeObject(newFile);
+                    using (var client = new TcpClient())
                     {
-                        var data = Encoding.UTF8.GetBytes(myFile);
-                        stream.Write(data, 0, data.Length);
+                        client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                        using (var stream = client.GetStream())
+                        {
+                            var data = Encoding.UTF8.GetBytes(myFile);
+                            stream.Write(data, 0, data.Length);
+                        }
+                    }
+                    using (var client = new TcpClient())
+                    {
+                        client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                        using (var stream = client.GetStream())
+                        {
+                            stream.Write(FileData, 0, FileData.Length);
+                            var resultText = string.Empty;
+                            do
+                            {
+                                var buffer = new byte[128];
+                                stream.Read(buffer, 0, buffer.Length);
+                                resultText += System.Text.Encoding.UTF8.GetString(buffer);
+                            }
+                            while (stream.DataAvailable);
+                            var myFiles = JsonConvert.DeserializeObject<List<MyFile>>(resultText);
+                            MyFiles = myFiles;
+                        }
                     }
                 }
+            });
+        }
+        public async Task DownloadFileAsync(Guid id, string size, string format)
+        {
+            await Task.Run(() =>
+            {
                 using (var client = new TcpClient())
                 {
                     client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
                     using (var stream = client.GetStream())
                     {
-                        stream.Write(FileData, 0, FileData.Length);
+                        var data = Encoding.UTF8.GetBytes(id.ToString());
+                        stream.Write(data, 0, data.Length);
+
+                        byte[] buffer = new byte[int.Parse(size)];
+                        stream.Read(buffer, 0, buffer.Length);
+                        SaveToComputer(buffer, format);
+                    }
+                };
+            });
+                
+        }
+
+        public async Task DeleteFileAsync(Guid id)
+        {
+            await Task.Run(() =>
+            {
+                using (var client = new TcpClient())
+                {
+                    client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
+                    using (var stream = client.GetStream())
+                    {
+                        var data = Encoding.UTF8.GetBytes(id.ToString());
+                        stream.Write(data, 0, data.Length);
+
                         var resultText = string.Empty;
                         do
                         {
@@ -144,54 +194,7 @@ namespace FilesClient
                         MyFiles = myFiles;
                     }
                 }
-                return true;
-            }
-            return false;
-        }
-        public void DownloadFile(Guid id, string size, string format)
-        {
-            using (var client = new TcpClient())
-            {
-                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
-                using (var stream = client.GetStream())
-                {
-                    var data = Encoding.UTF8.GetBytes(id.ToString());
-                    stream.Write(data, 0, data.Length);
-
-                    byte[] buffer = new byte[int.Parse(size)];
-                    stream.Read(buffer, 0, buffer.Length);
-                    SaveToComputer(buffer, format);
-                }
-            }
-        }
-
-        public void DeleteFile(Guid id)
-        {
-            using (var client = new TcpClient())
-            {
-                client.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 3231));
-                using (var stream = client.GetStream())
-                {
-                    var data = Encoding.UTF8.GetBytes(id.ToString());
-                    stream.Write(data, 0, data.Length);
-
-                    var resultText = string.Empty;
-                    do
-                    {
-                        var buffer = new byte[128];
-                        stream.Read(buffer, 0, buffer.Length);
-                        resultText += System.Text.Encoding.UTF8.GetString(buffer);
-
-                        //if (!stream.DataAvailable)
-                        //{
-                        //    System.Threading.Thread.Sleep(1);
-                        //}
-                    }
-                    while (stream.DataAvailable);
-                    var myFiles = JsonConvert.DeserializeObject<List<MyFile>>(resultText);
-                    MyFiles = myFiles;
-                }
-            }
+            });
         }
 
         public void SaveToComputer(byte[] data, string format)
